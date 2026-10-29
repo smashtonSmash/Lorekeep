@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "es2022", "lib": ["ES2023", "DOM", "DOM.Iterable"], "module": "esnext", "moduleResolution": "bundler",
+    "jsx": "react-jsx", "strict": true, "noImplicitAny": false, "noEmit": true, "skipLibCheck": true, "resolveJsonModule": true,
+    "noUnusedLocals": true, "noUnusedParameters": true, "allowImportingTsExtensions": false, "types": []
+  },
+  "include": ["src"]
+}

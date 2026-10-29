@@ -1,0 +1,12 @@
+{
+  "name": "lorekeep",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p . && node scripts/build.mjs",
+    "test": "bun test"
+  },
+  "dependencies": { "react": "^19.2.8", "react-dom": "^19.2.8" },
+  "devDependencies": { "esbuild": "^0.25.0", "typescript": "^5.8.0" }
+}
