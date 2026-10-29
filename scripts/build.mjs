@@ -6,7 +6,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 
 const r = await build({
   entryPoints: ['src/main.tsx'], bundle: true, write: false, minify: true, format: 'iife', target: 'es2020',
-  jsx: 'automatic', loader: { '.json': 'json' }, define: { 'process.env.NODE_ENV': '"production"' },
+  jsx: 'automatic', loader: { '.json': 'json', '.jpg': 'dataurl' }, define: { 'process.env.NODE_ENV': '"production"' },
   outdir: 'dist', nodePaths: [process.env.NODE_DEPS ?? 'node_modules'], legalComments: 'none',
 })
 const js = r.outputFiles.find((f) => f.path.endsWith('.js')).text.replace(/<\/script/gi, '<\\/script')
