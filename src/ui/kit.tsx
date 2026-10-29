@@ -1,5 +1,5 @@
 // Small shared UI pieces. Dialogs are built in (browser confirm/alert are blocked inside artifacts).
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { rarityOf } from '../rules/tiers'
 import type { Item, Special, Tier } from '../core/types'
 
@@ -72,8 +72,16 @@ export function RarityTag({ it }: { it: { tier?: Tier; special?: Special } }) {
 export function HpBar({ hp, max, temp = 0 }: { hp: number; max: number; temp?: number }) {
   const pct = max ? Math.max(0, Math.min(100, (hp / max) * 100)) : 0
   const tone = hp <= 0 ? 'down' : pct <= 25 ? 'low' : pct <= 50 ? 'mid' : 'ok'
+  // a pale ghost of the lost HP lingers, then drains away
+  const [trail, setTrail] = useState(pct)
+  const prev = useRef(pct)
+  useEffect(() => {
+    if (pct < prev.current) { setTrail(prev.current); const t = setTimeout(() => setTrail(pct), 30); prev.current = pct; return () => clearTimeout(t) }
+    prev.current = pct; setTrail(pct)
+  }, [pct])
   return (
     <div className="hpbar" aria-label={`${hp} of ${max} HP`}>
+      <div className="trail" style={{ width: `${Math.max(trail, pct)}%` }} />
       <div className={`fill ${tone}`} style={{ width: `${pct}%` }} />
       <span>{hp}/{max}{temp ? ` +${temp}` : ''}</span>
     </div>

@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { flash } from '../ui/fx'
 import { average, fmtMod, roll } from '../core/dice'
 import { list, patch, setDoc, setLocal, useApp } from '../core/store'
 import { usePlayerLabel, useRole } from '../core/role'
@@ -48,6 +49,14 @@ export default function Battle() {
       onRemove={() => setDoc('encounter', (e) => ({ ...e, combatants: e.combatants.filter((x) => x.id !== f.c.id), turnId: e.turnId === f.c.id ? null : e.turnId }))}
       onLoot={() => setLootFor({ id: f.c.id })} />
   )
+  const lastLog = enc.log[enc.log.length - 1]
+  const seenLog = useRef(lastLog?.id)
+  useEffect(() => {
+    if (!lastLog || lastLog.id === seenLog.current) return
+    seenLog.current = lastLog.id
+    if (lastLog.kind === 'crit') flash('crit')
+    if (lastLog.kind === 'down') flash('down')
+  }, [lastLog])
   return (
     <div className="stack">
       {!dm && role.table && <div className="banner">👁 Live view of the battle — your DM runs combat. Damage they deal updates your sheet's HP.</div>}
@@ -128,9 +137,30 @@ function Avatar({ f }: { f: { name: string; portrait?: string } }) {
   return <div className="avatar">{f.portrait ? <img src={f.portrait} alt="" width={34} height={34} style={{ objectFit: 'cover' }} /> : f.name.slice(0, 1)}</div>
 }
 
+/** Floating numbers and a shake whenever HP changes — on every phone watching. */
+function useHpFx(hp: number) {
+  const prev = useRef(hp)
+  const [fx, setFx] = useState<{ id: number; n: number }[]>([])
+  const [cls, setCls] = useState('')
+  useEffect(() => {
+    const d = hp - prev.current
+    prev.current = hp
+    if (!d) return
+    const id = Date.now() + Math.random()
+    setFx((x) => [...x.slice(-3), { id, n: d }])
+    setCls(d < 0 ? 'hit' : 'healed')
+    const a = setTimeout(() => setCls(''), 600)
+    const b = setTimeout(() => setFx((x) => x.filter((y) => y.id !== id)), 1400)
+    return () => { clearTimeout(a); void b }
+  }, [hp])
+  return { fx, cls }
+}
+
 function FighterCard({ f, label, turn, picked, dropping, handlers, dm, onRemove, onLoot }: { f: Fighter; label: string; turn: boolean; picked: boolean; dropping: boolean; handlers: Record<string, unknown>; dm: boolean; onRemove: () => void; onLoot: () => void }) {
+  const { fx, cls } = useHpFx(f.hp)
   return (
-    <div className={`fighter ${turn ? 'turn' : ''} ${f.hp <= 0 ? 'down' : ''} ${picked ? 'picked' : ''} ${dropping ? 'drop' : ''}`} {...handlers}>
+    <div className={`fighter ${turn ? 'turn' : ''} ${f.hp <= 0 ? 'down' : ''} ${picked ? 'picked' : ''} ${dropping ? 'drop' : ''} ${cls}`} {...handlers}>
+      {fx.map((x) => <span key={x.id} className={`floater ${x.n < 0 ? (x.n <= -Math.max(10, f.maxHp * .4) ? 'dmg crit' : 'dmg') : 'heal'}`}>{x.n < 0 ? x.n : `+${x.n}`}</span>)}
       <div className="row nowrap">
         <Avatar f={f} />
         <div className="grow"><div className="fname">{label}</div>

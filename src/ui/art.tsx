@@ -90,14 +90,14 @@ export function ItemArt({ it, size = 40 }: { it: Item; size?: number }) {
   const accent = it.kind === 'material' ? MAT_COLOR[it.mat ?? 'gray'] : r?.color ?? '#b7a77e'
   const up = it.tier === 'legendary' || it.tier === 'mythic' || it.special === 'black'
   return (
-    <svg className="art" width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" style={{ borderColor: accent }}>
+    <svg className={`art${up ? ' up' : ''}`} width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" style={{ borderColor: accent, ['--art-glow' as string]: accent + '99' }}>
       <defs>
         <linearGradient id="lk-metal" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#eef2f6" /><stop offset=".5" stopColor="#aab3be" /><stop offset="1" stopColor="#6d7783" /></linearGradient>
         <radialGradient id={`g-${accent.slice(1)}`}><stop offset="0" stopColor={accent} stopOpacity=".45" /><stop offset="1" stopColor={accent} stopOpacity="0" /></radialGradient>
       </defs>
       {(up || it.tier === 'purple') && <circle cx="24" cy="24" r="23" fill={`url(#g-${accent.slice(1)})`} />}
       {shape(it, up ? GOLD : accent)}
-      {up && <g fill="#fff6c8">{[[8, 9, 2], [40, 12, 1.6], [38, 40, 2.2], [9, 38, 1.4]].map(([x, y, s], i) => <path key={i} d={`M${x} ${y - s * 2} L${x + s / 2} ${y - s / 2} L${x + s * 2} ${y} L${x + s / 2} ${y + s / 2} L${x} ${y + s * 2} L${x - s / 2} ${y + s / 2} L${x - s * 2} ${y} L${x - s / 2} ${y - s / 2}z`} />)}</g>}
+      {up && <g fill="#fff6c8">{[[8, 9, 2], [40, 12, 1.6], [38, 40, 2.2], [9, 38, 1.4]].map(([x, y, s], i) => <path key={i} className="tw" d={`M${x} ${y - s * 2} L${x + s / 2} ${y - s / 2} L${x + s * 2} ${y} L${x + s / 2} ${y + s / 2} L${x} ${y + s * 2} L${x - s / 2} ${y + s / 2} L${x - s * 2} ${y} L${x - s / 2} ${y - s / 2}z`} />)}</g>}
     </svg>
   )
 }

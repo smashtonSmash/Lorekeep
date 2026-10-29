@@ -4,6 +4,7 @@ import { useRole, usePlayerLabel } from './core/role'
 import { seed } from './core/seed'
 import { Overlays, Sheet, confirmBox, toast } from './ui/kit'
 import { ItemArt } from './ui/art'
+import { Embers, burst, flash } from './ui/fx'
 import Battle from './screens/Battle'
 import Characters from './screens/Characters'
 import Dice from './screens/Dice'
@@ -50,6 +51,7 @@ export default function App() {
   const Screen = { battle: Battle, characters: Characters, dice: Dice, campaign: Campaign, loot: Loot, casino: Casino, town: Town, rules: Rules }[tab]
   return (
     <>
+      <Embers />
       <header className="top">
         <div className="brand"><b>✦</b> LoreKeep</div>
         <div className="grow" />
@@ -155,17 +157,26 @@ function RevealOverlay() {
   const label = usePlayerLabel()
   const [dismissed, setDismissed] = useState<number | null>(null)
   const chest = list('chests').find((k) => k.revealedAt && !k.closed)
-  if (!chest || role.isDM || dismissed === chest.revealedAt) return null
+  const showing = !!chest && !role.isDM && dismissed !== chest.revealedAt
+  useEffect(() => { if (showing) { const t = setTimeout(() => burst({ x: innerWidth / 2, y: innerHeight * .3 }, { count: 44, star: true, spread: 200 }), 1050); return () => clearTimeout(t) } }, [showing, chest?.revealedAt])
+  if (!chest || !showing) return null
   const mine = list('chars').filter(role.mine)
   return (
     <div className="reveal" role="dialog" aria-label="Treasure revealed">
+      <div className="rays" aria-hidden="true" />
+      <svg className="chest-big" width="120" height="98" viewBox="0 0 64 52" aria-hidden="true">
+        <rect x="6" y="22" width="52" height="26" rx="3" fill="#7a4f27" stroke="#3a2412" strokeWidth="2" />
+        <rect x="6" y="28" width="52" height="4" fill="#f2c14e" />
+        <g fill="#ffe08a"><circle cx="22" cy="21" r="3.5" /><circle cx="31" cy="18" r="3.5" /><circle cx="41" cy="21" r="3.5" /></g>
+        <g className="lid"><path d="M6 22 Q32 2 58 22z" fill="#8a5a2b" stroke="#3a2412" strokeWidth="2" /><rect x="28" y="16" width="8" height="8" rx="1.5" fill="#f2c14e" stroke="#3a2412" /></g>
+      </svg>
       <div className="label">The DM reveals</div>
       <h1>{chest.name}</h1>
       <div className="stack" style={{ width: 'min(100%, 460px)' }}>
-        {chest.items.map((it) => {
+        {chest.items.map((it, i) => {
           const taker = chest.takenBy[it.id]
           return (
-            <div key={it.id} className="item">
+            <div key={it.id} className="item" style={{ ['--i' as string]: i }}>
               <ItemArt it={it} size={48} />
               <div className="meta"><div className="name">{it.name}{it.qty > 1 ? ` ×${it.qty}` : ''}</div><div className="sub">{taker ? `Taken by ${taker}` : it.desc}</div></div>
               {!taker && chest.allowTake && !role.readOnly && mine.map((c) => <button key={c.id} className="btn small primary" onClick={() => { takeFromChest(chest.id, it.id, c.id, label(c)); toast(`${c.name} takes ${it.name}`, 'good') }}>{mine.length > 1 ? c.name : 'Take'}</button>)}
@@ -179,6 +190,8 @@ function RevealOverlay() {
     </div>
   )
 }
+
+const flashBurst = () => { burst(document.querySelector('.orb'), { count: 28, colors: ['#ffffff', '#fff3c4', '#cfe8ff'], star: true, spread: 160 }); flash('good') }
 
 /** A white orb when one of my characters is newly given inspiration — never on load. */
 function InspirationOrb() {
@@ -194,7 +207,7 @@ function InspirationOrb() {
       if (prev !== undefined && ping > prev) setBurst({ name: c.name, key: ping })
     }
   })
-  useEffect(() => { if (!burst) return; const t = setTimeout(() => setBurst(null), 2500); return () => clearTimeout(t) }, [burst])
+  useEffect(() => { if (!burst) return; window.setTimeout(() => { flashBurst() }, 350); const t = setTimeout(() => setBurst(null), 2500); return () => clearTimeout(t) }, [burst])
   return burst ? <div className="orb" key={burst.key}><span>✨ {burst.name} is inspired</span></div> : null
 }
 
@@ -210,7 +223,7 @@ function LevelBanner() {
       if (prev !== undefined && p > prev) setB({ text: `⬆ ${c.name} reached level ${c.level}!`, key: p })
     }
   })
-  useEffect(() => { if (!b) return; const t = setTimeout(() => setB(null), 3200); return () => clearTimeout(t) }, [b])
+  useEffect(() => { if (!b) return; setTimeout(() => burst(document.querySelector('.levelup'), { count: 36, star: true }), 250); const t = setTimeout(() => setB(null), 3200); return () => clearTimeout(t) }, [b])
   return b ? <div className="levelup" key={b.key}>{b.text}</div> : null
 }
 

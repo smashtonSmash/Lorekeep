@@ -8,6 +8,7 @@ import {
   RED_NUMBERS, act, betLabel, canDo, deal, handValue, insure, isRed, rouletteWins, seatNet, spin, type BjAction, type BjRound, type Card, type RouletteBet,
 } from '../rules/casino'
 import { Empty, Seg, Stepper, toast } from '../ui/kit'
+import { burst, calm } from '../ui/fx'
 import { addRecap } from './Loot'
 
 /** Net silver to a purse. Losses can't take a purse below zero. */
@@ -70,6 +71,7 @@ function SoloBlackjack({ c, canPlay }: { c: Character; canPlay: boolean }) {
     if (r?.phase === 'done' && !paid) {
       const net = seatNet(r.seats[0])
       settleCoins(c.id, net)
+      if (net > 0) setTimeout(() => burst(document.querySelector('.felt'), { count: r.seats[0].hands.some((h) => h.result === 'blackjack') ? 50 : 24, star: true }), 300)
       if (net) addRecap('🃏', `${c.name} ${net > 0 ? 'won' : 'lost'} ${coinLabel(fromSilver(Math.abs(net)))} at blackjack`)
       setPaid(true)
     }
@@ -104,24 +106,29 @@ function Roulette({ c, canPlay }: { c: Character; canPlay: boolean }) {
   const [pick, setPick] = useState<RouletteBet>({ kind: 'red' })
   const [num, setNum] = useState(17)
   const [last, setLast] = useState<{ n: number; won: number } | null>(null)
+  const [spinning, setSpinning] = useState(false)
   const purse = toSilver(c.purse)
   const go = () => {
     const n = spin()
     const mult = rouletteWins(pick, n)
     const net = mult ? bet * mult : -bet
-    settleCoins(c.id, net)
-    setLast({ n, won: net })
+    setSpinning(true); setLast(null)
+    setTimeout(() => {
+      setSpinning(false); setLast({ n, won: net }); settleCoins(c.id, net)
+      if (net > 0) burst(document.querySelector('.wheel-num'), { count: mult >= 35 ? 60 : 24, star: true })
+    }, calm() ? 0 : 1600)
     addRecap('🎡', `${c.name} bet ${betLabel(pick)} — ${n}: ${net > 0 ? 'won' : 'lost'} ${coinLabel(fromSilver(Math.abs(net)))}`)
   }
   const kinds: RouletteBet[] = [{ kind: 'red' }, { kind: 'black' }, { kind: 'odd' }, { kind: 'even' }, { kind: 'low' }, { kind: 'high' }, { kind: 'dozen', n: 1 }, { kind: 'dozen', n: 2 }, { kind: 'dozen', n: 3 }]
   return (
     <div className="felt stack">
+      {(spinning || !last) && <div className="wheel-wrap"><div className={`wheel ${spinning ? 'spinning' : ''}`} /></div>}
       {last && <><div className="wheel-num" style={{ background: last.n === 0 ? '#1f7a3f' : RED_NUMBERS.has(last.n) ? '#b3202a' : '#1d1d1d' }}>{last.n}</div><p style={{ textAlign: 'center' }}><b>{last.won > 0 ? `Won ${coinLabel(fromSilver(last.won))}!` : `Lost ${coinLabel(fromSilver(-last.won))}`}</b></p></>}
       <div className="row">{kinds.map((k) => <button key={betLabel(k)} className={`chip ${betLabel(k) === betLabel(pick) ? 'on' : ''}`} onClick={() => setPick(k)}>{betLabel(k)}</button>)}
         <button className={`chip ${pick.kind === 'number' ? 'on' : ''}`} onClick={() => setPick({ kind: 'number', n: num })}>Number</button>
         {pick.kind === 'number' && <Stepper value={num} min={0} max={36} onChange={(n) => { setNum(n); setPick({ kind: 'number', n }) }} />}</div>
       <BetPicker bet={bet} setBet={setBet} max={purse} />
-      <button className="btn primary" disabled={!canPlay || bet <= 0 || bet > purse} onClick={go}>Spin</button>
+      <button className="btn primary" disabled={!canPlay || spinning || bet <= 0 || bet > purse} onClick={go}>{spinning ? 'Spinning…' : 'Spin'}</button>
       <small>Single zero. Red/black/odd/even/low/high pay 1:1, dozens 2:1, a single number 35:1.</small>
     </div>
   )

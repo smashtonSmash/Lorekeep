@@ -18,6 +18,7 @@ import { TIER_LABEL, nextTier } from '../rules/tiers'
 import { ItemArt } from '../ui/art'
 import { Empty, Field, RarityTag, Seg, Stepper, confirmBox, toast } from '../ui/kit'
 import { addRecap } from './Loot'
+import { burst, celebrate } from '../ui/fx'
 
 const BUY_FAVOR = 2 // each purchase warms the merchant a little
 
@@ -78,6 +79,7 @@ function Market({ c, dm, canAct }: { c?: Character; dm: boolean; canAct: boolean
     let next = addItem(paid, it)
     if (m) next = { ...next, favor: { ...next.favor, [m.id]: clampFavor(favorOf(next, m.id) + BUY_FAVOR) } }
     put('chars', next)
+    burst(null, { count: 12, spread: 80 })
     addRecap('🛒', `${c.name} bought ${it.name}`)
     toast(`🛒 ${it.name} for ${coinLabel({ gold: Math.floor(cost / 10), silver: cost % 10 })}${m ? ` · favor ${clampFavor(favor + BUY_FAVOR)}` : ''}`, 'good')
   }
@@ -149,6 +151,7 @@ function Forge({ c, dm, canAct }: { c: Character; dm: boolean; canAct: boolean }
     if (!dm) for (const id of [...holdIds, ...(r.item ? [r.item.id] : [])]) if (ch.inventory.some((i) => i.id === id)) ch = updateItem(ch, id, { atForge: true, equipped: false })
     put('chars', ch)
     addRecap('🔨', r.msg)
+    if (r.item) celebrate(); else burst(null, { count: 14, colors: ['#ffb347', '#ff7a3d', '#ffd166'] })
   }
   const gear = c.inventory.filter((i) => isGear(i) && i.tier && !i.special)
   const atForge = c.inventory.filter((i) => i.atForge)
@@ -275,6 +278,7 @@ function Fountain({ c, dm, hasFountain, canAct }: { c?: Character; dm: boolean; 
     if (r.granted) next = addItem(next, fountainGift())
     put('chars', next)
     setDoc('town', (t) => ({ ...t, fountain: r.fountain }))
+    if (r.granted) celebrate(); else burst(null, { count: 10, colors: ['#9fd3ff', '#cfe8ff', '#ffffff'], spread: 70 })
     addRecap('⛲', r.granted ? `The fountain accepted ${c.name}'s offering!` : `${c.name} tossed ${coinLabel({ gold: g, silver: sv })} into the fountain`)
     toast(r.granted ? '✨ The fountain glows and accepts the offering! A gift appears in the pack.' : 'The coins sink. Nothing happens… yet.', r.granted ? 'good' : undefined)
   }
