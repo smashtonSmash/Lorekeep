@@ -31,9 +31,12 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .embers { position: fixed; inset: 0; pointer-events: none; z-index: 0 }
 main { position: relative } /* no z-index: sheets inside main must rise above the tab bar */
 
-/* header sigil */
-.brand b { display: inline-block; text-shadow: 0 0 12px var(--glow); animation: sigil 6s ease-in-out infinite }
-@keyframes sigil { 0%, 100% { transform: rotate(0) scale(1); opacity: 1 } 50% { transform: rotate(45deg) scale(1.15); opacity: .8 } }
+/* the LoreKeep emblem: a little blue arcane glow that breathes */
+.logo { border-radius: 9px; flex: none; object-fit: cover; box-shadow: 0 0 0 1px rgb(242 193 78 / .55), 0 0 12px rgb(70 130 255 / .45); animation: emblem 5s ease-in-out infinite }
+@keyframes emblem { 50% { box-shadow: 0 0 0 1px rgb(242 193 78 / .8), 0 0 20px rgb(90 150 255 / .7) } }
+.boot { gap: 16px }
+.boot-logo { width: min(180px, 48vw); height: auto; border-radius: 28px; box-shadow: 0 0 0 2px rgb(242 193 78 / .6), 0 0 50px rgb(70 130 255 / .55); animation: bootIn .9s var(--spring), emblem 3s 1s ease-in-out infinite }
+@keyframes bootIn { from { transform: scale(.6) rotate(-8deg); opacity: 0 } to { transform: none; opacity: 1 } }
 .brand { letter-spacing: .03em }
 
 /* tab bar: lifted icon and a gliding marker */
@@ -205,7 +208,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 
 @media (prefers-reduced-motion: reduce) {
   .embers, .reveal .rays { display: none }
-  .brand b, .fighter.turn, .art.up, .art.up .tw, .hpbar .fill.low { animation: none !important }
+  .logo, .boot-logo, .fighter.turn, .art.up, .art.up .tw, .hpbar .fill.low { animation: none !important }
 }
 
 /* the table fills the whole screen even on short pages; loose text on the wood gets a little backing */

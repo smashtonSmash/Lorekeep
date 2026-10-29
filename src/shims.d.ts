@@ -17,4 +17,5 @@ declare module 'react/jsx-runtime' { export const jsx: any; export const jsxs: a
 declare namespace React { type PointerEvent = any }
 declare namespace JSX { type Element = any; interface IntrinsicElements { [k: string]: any } interface ElementChildrenAttribute { children: {} } interface IntrinsicAttributes { key?: any } }
 declare module '*.css' {}
+declare module '*.jpg' { const src: string; export default src }
 declare module '*.json' { const v: any; export default v }

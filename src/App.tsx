@@ -5,6 +5,8 @@ import { seed } from './core/seed'
 import { Overlays, Sheet, confirmBox, toast } from './ui/kit'
 import { ItemArt } from './ui/art'
 import { Embers, burst, flash } from './ui/fx'
+import logo from './assets/logo-128.jpg'
+import logoBig from './assets/logo-384.jpg'
 import Battle from './screens/Battle'
 import Characters from './screens/Characters'
 import Dice from './screens/Dice'
@@ -46,14 +48,14 @@ export default function App() {
     window.scrollTo({ top: 0 })
   }
 
-  if (!s.ready) return <div className="reveal"><h1 className="brand"><b>✦</b> LoreKeep</h1><p className="muted">Opening the table…</p></div>
+  if (!s.ready) return <div className="reveal boot"><img className="boot-logo" src={logoBig} alt="" width={180} height={180} /><h1 className="brand">LoreKeep</h1><p className="muted">Opening the table…</p></div>
 
   const Screen = { battle: Battle, characters: Characters, dice: Dice, campaign: Campaign, loot: Loot, casino: Casino, town: Town, rules: Rules }[tab]
   return (
     <>
       <Embers />
       <header className="top">
-        <div className="brand"><b>✦</b> LoreKeep</div>
+        <div className="brand"><img className="logo" src={logo} alt="" width={34} height={34} /> LoreKeep</div>
         <div className="grow" />
         {s.viewer.mode === 'table' ? <span className="pill good" title="Everyone with this link sees the same campaign">☁ Table</span> : <span className="pill" title="Saved on this device only">📱 This device</span>}
         <button className="btn small" onClick={() => setSetup(true)}>{role.isDM ? '👑 DM' : '🎲 Player'}</button>
@@ -140,7 +142,7 @@ function Welcome() {
   if (gone || s.viewer.mode !== 'table' || !s.viewer.isOwner || list('chars').length || s.docs.encounter.combatants.length || list('wiki').length) return null
   return (
     <div className="card stack" style={{ marginBottom: 14, borderColor: 'var(--accent)' }}>
-      <h2>Welcome to your table</h2>
+      <div className="row nowrap"><img className="logo" src={logoBig} alt="" width={64} height={64} /><h2>Welcome to your table</h2></div>
       <p>This is your campaign, and you're the DM. Share this page with your players as editors and they'll join live.</p>
       <div className="row">
         <button className="btn primary" onClick={() => { const x = seed(); x.chars.forEach((c) => put('chars', c)); x.wiki.forEach((w) => put('wiki', w)); setDoc('encounter', () => x.encounter); toast('Sample party added — remove it any time under 👑 DM', 'good') }}>Add the sample party</button>

@@ -2,7 +2,7 @@
 //  dist/index.html    – a normal web page (GitHub Pages, any static host)
 //  dist/artifact.html – the same app as claude.ai artifact content (shared-table mode)
 import { build } from 'esbuild'
-import { mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 
 const r = await build({
   entryPoints: ['src/main.tsx'], bundle: true, write: false, minify: true, format: 'iife', target: 'es2020',
@@ -16,5 +16,6 @@ const head = `<title>LoreKeep</title>\n<meta name="claude:viewport-fit-sides" co
 const body = `<div id="root"></div>\n<script>${js}</script>`
 mkdirSync('dist', { recursive: true })
 writeFileSync('dist/artifact.html', `${head}\n${body}\n`)
-writeFileSync('dist/index.html', `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">${head}</head><body>${body}</body></html>\n`)
+writeFileSync('dist/index.html', `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="LoreKeep"><link rel="icon" type="image/png" href="icon-32.png"><link rel="apple-touch-icon" href="icon-180.png"><link rel="manifest" href="manifest.webmanifest">${head}</head><body>${body}</body></html>\n`)
+if (existsSync('public')) cpSync('public', 'dist', { recursive: true })
 console.log('built', (readFileSync('dist/index.html').length / 1024).toFixed(0) + ' KB')
