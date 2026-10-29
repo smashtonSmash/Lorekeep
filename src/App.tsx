@@ -6,6 +6,8 @@ import { Overlays, Sheet, confirmBox, toast } from './ui/kit'
 import { ItemArt } from './ui/art'
 import { Embers, burst, flash } from './ui/fx'
 import logo from './assets/logo-128.jpg'
+import { CloudPanel } from './ui/Cloud'
+import { JOIN_KEY, inviteLink } from './cloud/supabase'
 import logoBig from './assets/logo-384.jpg'
 import Battle from './screens/Battle'
 import Characters from './screens/Characters'
@@ -35,7 +37,13 @@ export default function App() {
   const [setup, setSetup] = useState(false)
   const tab = (TABS.some((t) => t.id === s.local.tab) ? s.local.tab : 'battle') as TabId
 
-  useEffect(() => { start(seed) }, [])
+  useEffect(() => {
+    // an invite link (#join=CODE) or a sign-in link opens the online panel
+    const m = location.hash.match(/join=([A-Za-z0-9]{6})/)
+    if (m) { try { localStorage.setItem(JOIN_KEY, m[1].toUpperCase()) } catch { /* private mode */ } }
+    if (m || /access_token=/.test(location.hash)) setSetup(true)
+    start(seed)
+  }, [])
   useEffect(() => {
     const h = fromHash(); if (h && h !== getState().local.tab) setLocal((l) => ({ ...l, tab: h }))
     const on = () => { const t = fromHash(); if (t) setLocal((l) => ({ ...l, tab: t })) }
@@ -57,7 +65,9 @@ export default function App() {
       <header className="top">
         <div className="brand"><img className="logo" src={logo} alt="" width={34} height={34} /> LoreKeep</div>
         <div className="grow" />
-        {s.viewer.mode === 'table' ? <span className="pill good" title="Everyone with this link sees the same campaign">☁ Table</span> : <span className="pill" title="Saved on this device only">📱 This device</span>}
+        {s.viewer.backend === 'cloud' ? <button className="pill good" style={{ cursor: 'pointer', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={() => setSetup(true)} title="Online campaign">☁ {s.viewer.campaign?.name}</button>
+          : s.viewer.mode === 'table' ? <span className="pill good" title="Everyone with this link sees the same campaign">☁ Table</span>
+          : <button className="pill" style={{ cursor: 'pointer' }} onClick={() => setSetup(true)} title="Saved on this device only — tap to play online">📱 This device</button>}
         <button className="btn small" onClick={() => setSetup(true)}>{role.isDM ? '👑 DM' : '🎲 Player'}</button>
       </header>
       {s.error && <div className="banner bad" style={{ margin: '10px 16px 0' }}>{s.error}</div>}
@@ -95,11 +105,12 @@ function SetupSheet({ onClose }: { onClose: () => void }) {
     <Sheet title="Table & roles" onClose={onClose}>
       <div className="card stack">
         <div className="label">Where this campaign lives</div>
-        {table
-          ? <p>☁ <b>Shared table.</b> Everyone you share this page with sees the same campaign live — battle, sheets, loot, town. The artifact's owner is the DM.</p>
-          : <p>📱 <b>This device only.</b> Everything is saved in this browser. Open LoreKeep as a claude.ai artifact to play together across phones.</p>}
+        {s.viewer.backend === 'cloud' ? <p>☁ <b>Online campaign.</b> Everyone who joins with your code sees the same campaign live: battle, sheets, loot and town. {role.isDM ? 'You are the DM.' : 'Your DM runs it.'}</p>
+          : table ? <p>☁ <b>Shared table.</b> Everyone you share this page with sees the same campaign live. The artifact's owner is the DM.</p>
+          : <p>📱 <b>This device only.</b> Everything is saved in this browser. Sign in below to play online with your group.</p>}
         {table && s.viewer.isOwner && hasLocalData() && <button className="btn" onClick={async () => { if (await confirmBox('Copy the characters, chests and notes saved on this device up to the shared table?', 'Copy up')) { uploadLocalToTable(); toast('Copied to the table', 'good') } }}>⬆ Copy this device's campaign to the table</button>}
       </div>
+      {s.viewer.backend !== 'artifact' && <div className="card stack"><div className="label">☁ Play online</div><CloudPanel /></div>}
       <div className="card stack">
         <div className="label">Who's holding this phone?</div>
         {(!table || s.viewer.isOwner) && (
@@ -143,7 +154,8 @@ function Welcome() {
   return (
     <div className="card stack" style={{ marginBottom: 14, borderColor: 'var(--accent)' }}>
       <div className="row nowrap"><img className="logo" src={logoBig} alt="" width={64} height={64} /><h2>Welcome to your table</h2></div>
-      <p>This is your campaign, and you're the DM. Share this page with your players as editors and they'll join live.</p>
+      <p>This is your campaign, and you're the DM. {s.viewer.backend === 'cloud' ? 'Send your players the invite link and they join live.' : "Share this page with your players as editors and they'll join live."}</p>
+      {s.viewer.backend === 'cloud' && s.viewer.campaign && <button className="btn" onClick={async () => { try { await navigator.clipboard.writeText(inviteLink(s.viewer.campaign!.code)); toast('Invite link copied', 'good') } catch { toast(inviteLink(s.viewer.campaign!.code)) } }}>📋 Copy invite link · code {s.viewer.campaign.code}</button>}
       <div className="row">
         <button className="btn primary" onClick={() => { const x = seed(); x.chars.forEach((c) => put('chars', c)); x.wiki.forEach((w) => put('wiki', w)); setDoc('encounter', () => x.encounter); toast('Sample party added — remove it any time under 👑 DM', 'good') }}>Add the sample party</button>
         <button className="btn" onClick={() => setGone(true)}>Start fresh</button>

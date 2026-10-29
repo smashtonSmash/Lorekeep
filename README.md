@@ -2,7 +2,15 @@
 
 A D&D table app for phones: battle, character sheets, loot, town, casino and a DM reference.
 
-## Two ways to run it
+## Online play (Supabase) — one-time setup
+1. In Supabase, open your project → **SQL Editor** → paste all of `supabase/lorekeep.sql` → **Run**. (Safe to run again; it only adds `lk_` tables.)
+2. **Authentication → URL Configuration**: set **Site URL** to `https://smashtonsmash.github.io/Lorekeep/` and add `https://smashtonsmash.github.io/**` under **Redirect URLs**.
+3. **Authentication → Sign In / Providers → Email**: keep it on. Turning off "Confirm email" makes password sign-up instant.
+4. In LoreKeep tap **📱 This device** → sign in → **Start a campaign** → **Copy invite link** and send it to players.
+
+The project URL and public anon key live in `src/cloud/supabase.ts`.
+
+## Ways to run it
 - **Shared table (online play):** publish `dist/artifact.html` as a claude.ai artifact. The owner is the DM. Share it with each player as an **editor**; everyone sees the same campaign live.
 - **One device:** open `dist/index.html` anywhere (GitHub Pages works). Data stays in that browser.
 

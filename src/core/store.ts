@@ -6,6 +6,7 @@ import type { Character, Chest, DiceRoll, Encounter, RecapEvent, Settings, Share
 import { uid } from './types'
 import type { CustomOrigin } from '../data/origins'
 import { DEFAULT_MERCHANTS } from '../rules/economy'
+import { CAMPAIGN_KEY, currentUser, getClient, mightBeSignedIn, type Sb } from '../cloud/supabase'
 import type { CasinoState, Seat } from '../screens/casinoState'
 
 export interface Docs {
@@ -21,7 +22,13 @@ export interface Cols { chars: Character; chests: Chest; wiki: WikiPage; trades:
 export type ColName = keyof Cols
 export interface Local { dice: DiceRoll[]; tab: string; role: 'dm' | 'player'; playerChars: string[]; quickAttack: boolean; dmPeekFountain?: boolean }
 
-export interface Viewer { mode: 'local' | 'table'; canWrite: boolean; isOwner: boolean; id: string | null; names: Record<string, string> }
+export interface Viewer {
+  mode: 'local' | 'table'
+  backend: 'local' | 'artifact' | 'cloud'
+  canWrite: boolean; isOwner: boolean; id: string | null; names: Record<string, string>
+  campaign?: { id: string; name: string; code: string }
+  email?: string
+}
 
 export interface State {
   ready: boolean
@@ -54,7 +61,7 @@ const localDefaults: Local = { dice: [], tab: 'battle', role: 'dm', playerChars:
 let state: State = {
   ready: false, docs: defaults(), cols: { chars: {}, chests: {}, wiki: {}, trades: {}, seats: {} },
   local: { ...localDefaults, ...parse(safeGet(LOCAL_KEY), {}) },
-  viewer: { mode: 'local', canWrite: true, isOwner: true, id: null, names: {} },
+  viewer: { mode: 'local', backend: 'local', canWrite: true, isOwner: true, id: null, names: {} },
 }
 const listeners = new Set<() => void>()
 const emit = () => listeners.forEach((l) => l())
@@ -171,6 +178,12 @@ export async function start(seed: () => { chars: Character[]; wiki: WikiPage[]; 
     try { [db, userCap] = (await Promise.all([window.claude.use('db'), window.claude.use('user')])) as [Db | null, UserCap | null] } catch { db = null }
   }
   if (!db) {
+    // Online through Supabase? Only when this device has picked a campaign and is signed in.
+    if (safeGet(CAMPAIGN_KEY) && mightBeSignedIn()) {
+      try { if (await startCloud(safeGet(CAMPAIGN_KEY)!)) return } catch (e) {
+        state = { ...state, error: `Couldn't open the online campaign: ${(e as Error).message}. You're on this device's copy for now.` }
+      }
+    }
     if (firstRun) {
       const s = seed()
       safeSet(DATA_KEY + 'seeded', '1')
@@ -185,7 +198,7 @@ export async function start(seed: () => { chars: Character[]; wiki: WikiPage[]; 
   const id = userCap ? await userCap.id().catch(() => null) : null
   const isOwner = userCap?.isOwner() ?? false
   const can = userCap?.can('data.write')
-  state = { ...state, docs: defaults(), cols: { chars: {}, chests: {}, wiki: {}, trades: {}, seats: {} }, viewer: { mode: 'table', isOwner, canWrite: can !== false, id, names: {} }, local: { ...state.local, role: isOwner ? state.local.role : 'player' } }
+  state = { ...state, docs: defaults(), cols: { chars: {}, chests: {}, wiki: {}, trades: {}, seats: {} }, viewer: { mode: 'table', backend: 'artifact', isOwner, canWrite: can !== false, id, names: {} }, local: { ...state.local, role: isOwner ? state.local.role : 'player' } }
   backend = {
     async write(path, body) {
       const ref = db!.doc(path)
@@ -224,8 +237,90 @@ export async function start(seed: () => { chars: Character[]; wiki: WikiPage[]; 
   }
 }
 
-/** Player names from claude.ai profiles (online). Never stored — resolved fresh. */
+// ---------- Supabase campaign ----------
+const empty = () => ({ chars: {}, chests: {}, wiki: {}, trades: {}, seats: {} }) as State['cols']
+function applyRemote(col: string, id: string, data: Record<string, unknown> | null) {
+  const path = `${col}/${id}`
+  if (busy(path)) return // our own newer edit is on its way
+  if (col === 'table') {
+    const base = defaults()
+    if (!(id in base)) return
+    const v = (data as { v?: unknown } | null)?.v
+    state = { ...state, docs: { ...state.docs, [id]: v && typeof v === 'object' && !Array.isArray(v) ? { ...(base[id as keyof Docs] as object), ...(v as object) } : base[id as keyof Docs] } }
+  } else if ((COLS as string[]).includes(col)) {
+    const cur = { ...(state.cols[col as ColName] as Record<string, unknown>) }
+    if (data) cur[id] = data; else delete cur[id]
+    state = { ...state, cols: { ...state.cols, [col]: cur } }
+  }
+}
+let cloudNames: Record<string, string> = {}
+
+async function startCloud(campaignId: string): Promise<boolean> {
+  const sb: Sb = await getClient()
+  const user = await currentUser()
+  if (!user) return false
+  const { data: me } = await sb.from('lk_members').select('role, display_name, lk_campaigns(id, name, code)').eq('campaign_id', campaignId).eq('user_id', user.id).maybeSingle()
+  if (!me?.lk_campaigns) { safeSet(CAMPAIGN_KEY, null); return false }
+  const isOwner = me.role === 'dm'
+  state = {
+    ...state, docs: defaults(), cols: empty(),
+    viewer: { mode: 'table', backend: 'cloud', isOwner, canWrite: true, id: user.id, names: {}, campaign: me.lk_campaigns, email: user.email },
+    local: { ...state.local, role: isOwner ? state.local.role : 'player' },
+  }
+  backend = {
+    async write(path, body) {
+      const [col, id] = path.split('/')
+      const q = body
+        ? sb.from('lk_docs').upsert({ campaign_id: campaignId, col, id, data: JSON.parse(JSON.stringify(body)), updated_at: new Date().toISOString() })
+        : sb.from('lk_docs').delete().match({ campaign_id: campaignId, col, id })
+      const { error } = await q
+      if (error) throw Object.assign(new Error(error.message), { code: error.code === '42501' ? 'invalid_argument' : 'unavailable' })
+    },
+  }
+  const loadAll = async () => {
+    const rows: { col: string; id: string; data: Record<string, unknown> }[] = []
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await sb.from('lk_docs').select('col, id, data').eq('campaign_id', campaignId).range(from, from + 999)
+      if (error) throw new Error(error.message)
+      rows.push(...(data ?? []))
+      if (!data || data.length < 1000) break
+    }
+    // replace everything except our own unsent edits
+    const keepDocs = state.docs, keepCols = state.cols
+    state = { ...state, docs: defaults(), cols: empty() }
+    for (const r of rows) applyRemote(r.col, r.id, r.data)
+    for (const p of [...pending.keys(), ...inflight]) {
+      const [col, id] = p.split('/')
+      if (col === 'table') state = { ...state, docs: { ...state.docs, [id]: keepDocs[id as keyof Docs] } }
+      else { const cur = { ...(state.cols[col as ColName] as Record<string, unknown>) }; const v = (keepCols[col as ColName] as Record<string, unknown>)[id]; if (v) cur[id] = v; else delete cur[id]; state = { ...state, cols: { ...state.cols, [col]: cur } } }
+    }
+  }
+  const loadMembers = async () => {
+    const { data } = await sb.from('lk_members').select('user_id, display_name, role').eq('campaign_id', campaignId)
+    cloudNames = Object.fromEntries((data ?? []).map((m: { user_id: string; display_name: string }) => [m.user_id, m.display_name]))
+    state = { ...state, viewer: { ...state.viewer, names: { ...cloudNames } } }
+    emit()
+  }
+  await loadAll()
+  await loadMembers()
+  state = { ...state, ready: true }
+  emit()
+  sb.channel(`lk-${campaignId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'lk_docs', filter: `campaign_id=eq.${campaignId}` }, (p: { eventType: string; new: { campaign_id: string; col: string; id: string; data: Record<string, unknown> }; old: { campaign_id?: string; col?: string; id?: string } }) => {
+      if (p.eventType === 'DELETE') { if (p.old?.campaign_id === campaignId && p.old.col && p.old.id) applyRemote(p.old.col, p.old.id, null) }
+      else if (p.new?.campaign_id === campaignId) applyRemote(p.new.col, p.new.id, p.new.data)
+      emit()
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'lk_members', filter: `campaign_id=eq.${campaignId}` }, () => { loadMembers() })
+    .subscribe()
+  // phones sleep: catch up whenever the app comes back to the front
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) loadAll().then(emit).catch(() => {}) })
+  return true
+}
+
+/** Player names: claude.ai profiles in an artifact, campaign member names online. Never stored on characters. */
 export async function resolveNames(ids: string[]) {
+  if (state.viewer.backend === 'cloud') return
   if (!userCap || !ids.length) return
   const missing = ids.filter((i) => !(i in state.viewer.names))
   if (!missing.length) return

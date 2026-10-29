@@ -121,6 +121,8 @@ export default function Rules() {
           <li>Wishing fountain: a secret threshold of {FOUNTAIN_THRESHOLDS.join(' / ')}g. Coins are kept; meeting it grants a gift <span className="ph">PLACEHOLDER</span> and re-rolls the secret.</li>
         </ul>
       </div>
+
+      <small className="muted" style={{ textAlign: 'center', padding: '8px 0' }}>LoreKeep is an unofficial tabletop RPG companion. It includes material from the System Reference Document 5.1 by Wizards of the Coast LLC, available under the Creative Commons Attribution 4.0 International License.</small>
     </div>
   )
 }
