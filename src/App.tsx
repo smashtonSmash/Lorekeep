@@ -56,7 +56,7 @@ export default function App() {
     window.scrollTo({ top: 0 })
   }
 
-  if (!s.ready) return <div className="reveal boot"><img className="boot-logo" src={logoBig} alt="" width={180} height={180} /><h1 className="brand">LoreKeep</h1><p className="muted">Opening the table…</p></div>
+  if (!s.ready) return <div className="reveal boot"><img className="boot-logo" src={logoBig} alt="" width={180} height={180} /><h1 className="brand">LoreKeep</h1><p className="muted">Setting the table…</p></div>
 
   const Screen = { battle: Battle, characters: Characters, dice: Dice, campaign: Campaign, loot: Loot, casino: Casino, town: Town, rules: Rules }[tab]
   return (
